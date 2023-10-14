@@ -1,0 +1,232 @@
+---
+title: "04-Random-forest-analysis"
+author: "Mayuri Kotian"
+date: "2023-10-6"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 4: What can we say about the association between Lantana and RVBU based on acoustic data?
+
+This is an R Markdown document contains three sections that provide the code for computing the variable importance of six explanatory vars for predicting three response vars - 1. Proportion of all vocalizations, 2. proportion of songs and 3. proportion of contact calls using the Random forest analysis. 
+
+
+# Loading libraries and data containg the spectral information about RVBU vocalizations
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+# Loading required libraries
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggpmisc)
+library(ggsignif)
+library(ggpubr)
+library(rstatix)
+library(randomForest)
+
+## set working directory
+
+setwd("E:/RVBU/Code_and_data_for_Biotropica/V2")
+
+## Reading RVBU vocalization data
+RVBU_exp <- read.csv("RVBU_vocalizations_with_exp_var.csv", 
+                       header = TRUE, check.names = FALSE)
+
+#Ensuring correct datatypes for factor vars used in analysis
+
+RVBU_exp$Time_15 <- as.factor(RVBU_exp$Time_15)
+RVBU_exp$`Site type` <- as.factor(RVBU_exp$`Site type`)
+RVBU_exp$`Lantana density` <- as.factor(RVBU_exp$`Lantana density`)
+
+```
+
+# 1. Proportion of all RVBU vocalizations
+The following section uses the random forest classification model to examine the importance of explanatory variables for the proportion of all vocalizations per day. It also provides the code used to plot out the results. 
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+#Initialize new data frame to work on loaded data
+N_calls <- RVBU_exp
+
+N_calls$N_calls <- 1
+
+### Computing the proportion of all vocalizations
+
+All_calls <- N_calls %>% group_by(`Site type`, Site_Name, `Site code`, Date, `Total trees`, 
+                                  `Simpson index (All trees)`,`Lantana density`,`Total population (in 3 km buffer)`,
+                                  `% Farms (in 3 km buffer)`,`% Forest (in 3 km buffer)` ) %>%
+  summarise(N_clips = length(unique(Obs_Name))) ## Calls prop denominator
+
+CallsProp <- N_calls %>% group_by(`Site type`, Site_Name, `Site code`, Date, `Total trees`, 
+                                  `Simpson index (All trees)`,`Lantana density`,`Total population (in 3 km buffer)`,
+                                  `% Farms (in 3 km buffer)`,`% Forest (in 3 km buffer)` ) %>%
+  summarise(N_calls = sum(N_calls)) ## Calls prop numerator
+
+
+All_calls$N_calls <- CallsProp$N_calls #Merging numerator with denominator
+
+CallsProp <- All_calls[!duplicated(All_calls), ] #Removing duplicate rows
+
+#Formula for computing the proportion
+CallsProp$CallsProp <- CallsProp$N_calls / CallsProp$N_clips
+
+CallsProp <- na.omit(CallsProp)      ### Remove all rows with NA values
+
+#Running the Random forest model with 6 explanatory vars
+Random_Forest <- randomForest(y = CallsProp$CallsProp, x = CallsProp[, c(5:10)]) 
+
+#varImpPlot(Random_Forest, main = 'All RVBU calls')
+imp <- varImpPlot(Random_Forest) # let's save the varImp object
+
+# this part just creates the data.frame for the plot part
+imp <- as.data.frame(imp)
+imp$varnames <- rownames(imp) # row names to column
+rownames(imp) <- NULL  
+
+# this is the plot part, be sure to use reorder with the correct measure name 
+ggplot(imp, aes(x=reorder(varnames, IncNodePurity), y=IncNodePurity)) + 
+  geom_point(color = "#D55E00", size = 4) +
+  geom_segment(aes(x=varnames,xend=varnames,y=0,yend=IncNodePurity), 
+               color = "#D55E00",
+               size = 1) +
+  ylab("IncNodePurity") +
+  xlab("") +
+  coord_flip()+
+  theme_minimal()+
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        axis.title.x = element_text(vjust = -0.1),
+        text = element_text(size = 14))+
+  ggtitle("Proportion of all vocalizations")
+
+```
+
+# 2. Proportion of RVBU songs
+The following section uses the random forest classification model to examine the importance of explanatory variables for the proportion of RVBU songs per day. It also provides the code used to plot out the results. 
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+N_calls <- RVBU_exp
+N_calls$N_calls <- 1
+
+#Subsetting data for songs only
+songs <- subset(RVBU_exp, RVBU_exp$Song_Type == "Song")
+
+#Adding a count var
+songs$N_calls <- 1
+
+#Computing numerator and denominator for acquiring the proportion
+All_calls <- N_calls %>% group_by(`Site type`, Site_Name, `Site code`, Date, `Total trees`, 
+                                  `Simpson index (All trees)`,`Lantana density`,`Total population (in 3 km buffer)`,
+                                  `% Farms (in 3 km buffer)`,`% Forest (in 3 km buffer)` ) %>%
+  summarise(All_calls = sum(N_calls)) # Denominator
+
+CallsProp <- songs %>% group_by(`Site type`, Site_Name, `Site code`, Date, `Total trees`, 
+                                `Simpson index (All trees)`,`Lantana density`,`Total population (in 3 km buffer)`,
+                                `% Farms (in 3 km buffer)`,`% Forest (in 3 km buffer)` ) %>%
+  summarise(N_calls = sum(N_calls)) #Numerator
+
+CallsProp <- merge.data.frame(CallsProp, All_calls, 
+                              by = c("Site type", "Site_Name", "Site code", "Date",
+                                     "Total trees", 
+                                     "Simpson index (All trees)","Lantana density","Total population (in 3 km buffer)",
+                                     "% Farms (in 3 km buffer)","% Forest (in 3 km buffer)"))
+
+#Formula for computing the proportion
+CallsProp$CallsProp <- CallsProp$N_calls / CallsProp$All_calls
+
+#RUnning Random forest model
+Random_Forest <- randomForest(y = CallsProp$CallsProp, x = CallsProp[, c(5:10)]) 
+
+#varImpPlot(Random_Forest, main = 'All RVBU calls')
+imp <- varImpPlot(Random_Forest) # let's save the varImp object
+
+# this part just creates the data.frame for the plot part
+imp <- as.data.frame(imp)
+imp$varnames <- rownames(imp) # row names to column
+rownames(imp) <- NULL  
+
+# this is the plot part, be sure to use reorder with the correct measure name
+ggplot(imp, aes(x=reorder(varnames, IncNodePurity), y=IncNodePurity)) + 
+  geom_point(color = "#D55E00", size = 4) +
+  geom_segment(aes(x=varnames,xend=varnames,y=0,yend=IncNodePurity), 
+               color = "#D55E00",
+               size = 1) +
+  ylab("IncNodePurity") +
+  xlab("") +
+  coord_flip()+
+  theme_minimal()+
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        axis.title.x = element_text(vjust = -0.1),
+        text = element_text(size = 14))+
+  ggtitle("Proportion of songs")
+
+```
+
+# 3. Proportion of RVBU contact calls
+The following section uses the random forest classification model to examine the importance of explanatory variables for the proportion of RVBU contact calls per day. It also provides the code used to plot out the results. 
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+N_calls <- RVBU_exp
+N_calls$N_calls <- 1
+
+#Subsetting data for contact calls only
+contact <- subset(RVBU_exp, RVBU_exp$Song_Type == "Contact")
+
+#Adding a count var
+contact$N_calls <- 1
+
+All_calls <- N_calls %>% group_by(`Site type`, Site_Name, `Site code`, Date, `Total trees`, 
+                                  `Simpson index (All trees)`,`Lantana density`,`Total population (in 3 km buffer)`,
+                                  `% Farms (in 3 km buffer)`,`% Forest (in 3 km buffer)` ) %>%
+  summarise(All_calls = sum(N_calls)) # Denominator
+
+CallsProp <- contact %>% group_by(`Site type`, Site_Name, `Site code`, Date, `Total trees`, 
+                                `Simpson index (All trees)`,`Lantana density`,`Total population (in 3 km buffer)`,
+                                `% Farms (in 3 km buffer)`,`% Forest (in 3 km buffer)` ) %>%
+  summarise(N_calls = sum(N_calls)) #Numerator
+
+CallsProp <- merge.data.frame(CallsProp, All_calls, 
+                              by = c("Site type", "Site_Name", "Site code", "Date",
+                                     "Total trees", 
+                                     "Simpson index (All trees)","Lantana density","Total population (in 3 km buffer)",
+                                     "% Farms (in 3 km buffer)","% Forest (in 3 km buffer)"))
+
+#Formula for computing the proportion
+CallsProp$CallsProp <- CallsProp$N_calls / CallsProp$All_calls
+
+#RUnning Random forest model
+Random_Forest <- randomForest(y = CallsProp$CallsProp, x = CallsProp[, c(5:10)]) 
+
+#varImpPlot(Random_Forest, main = 'All RVBU calls')
+imp <- varImpPlot(Random_Forest) # let's save the varImp object
+
+# this part just creates the data.frame for the plot part
+imp <- as.data.frame(imp)
+imp$varnames <- rownames(imp) # row names to column
+rownames(imp) <- NULL  
+
+# this is the plot part, be sure to use reorder with the correct measure name
+  ggplot(imp, aes(x=reorder(varnames, IncNodePurity), y=IncNodePurity)) + 
+  geom_point(color = "#D55E00", size = 4) +
+  geom_segment(aes(x=varnames,xend=varnames,y=0,yend=IncNodePurity), 
+               color = "#D55E00",
+               size = 1) +
+  ylab("IncNodePurity") +
+  xlab("") +
+  coord_flip()+
+  theme_minimal()+
+  theme(axis.text = element_text(size = 20),
+        #axis.text.x = element_text(angle = 45),
+        axis.title = element_text(size = 20),
+        axis.title.x = element_text(vjust = -0.1),
+        text = element_text(size = 14))+
+  ggtitle("Proportion of contact calls")
+
+```

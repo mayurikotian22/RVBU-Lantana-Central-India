@@ -1,0 +1,243 @@
+---
+title: "Total_detections+Proportion_of_types"
+author: "Mayuri Kotian"
+date: "2023-10-03"
+output: html_document
+---
+
+```Load 
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 1: Are there significant differences in the total number of detections and the proportion of the types of RVBU vocalization types detected across sites?
+
+This is an R Markdown document that contains 2 main sections of code that give us the following outputs - 1. Differences in the total number times RVBU presence was detected in each site type using a bootstrap algorithm. 2. Differences in the proportions of three vocalization types of RVBU, Songs, contact calls and alarm calls.
+
+
+## 1. Total number of times RVBU presence was detected in each site type
+This section computes the number of times RVBU presence was detected in restored, unrestored and LLD sites. Following the methods explained in section 2.3.2.1 in the main manuscript. 
+
+```{r setup, include=FALSE, message = FALSE, warning= FALSE}
+
+#Loading required libraries 
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggpmisc)
+library(ggsignif)
+library(rstatix)
+library(ggpubr)
+
+```
+
+Read data used for all sections in the markdown file. 
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+#Set working directory
+setwd("E:/RVBU/Code_and_data_for_Biotropica/V2")
+
+## Reading RVBU vocalization data
+Annotated <- read.csv("RVBU_presence.csv", header = TRUE) # Read annotated data
+
+```
+
+# Site type wise calculation of the number of RVBU vocalizations detected
+The following section uses a simple bootstrap algorithm to get the number of RVBU vocalizations detected per site.
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+
+## Getting the number of RVBU detections in Restored sites
+R <- Annotated[Annotated$Site_Group == "Restored", ] # Subset Restored sites data
+
+# Initialize data frames
+Dataset <- data.frame()
+temp <- data.frame('RVBU_count', 'iteration')
+
+i = 1 # Initialize i
+
+# For loop for 1000 iterations for 1000 random samples
+for(i in 1:1000){
+  sample = R[sample(nrow(R), 1000),]
+  temp$X.RVBU_count <- sum(sample$RVBU)
+  temp$X.iteration <- i      
+  Dataset = bind_rows(Dataset, temp)
+}
+
+R_RVBU <- Dataset
+
+# Add metadata for plotting
+R_RVBU$Site_Group <- "Restored"
+R_RVBU$Iteration <- c(1:nrow(R_RVBU))
+
+
+## Getting the number of RVBU detections in Unrestored sites
+U <- Annotated[Annotated$Site_Group == "Unrestored", ] # Subset data for Unrestored sites
+
+# Intializing data frames
+Dataset <- data.frame()
+temp <- data.frame('RVBU_count', 'iteration')
+
+i = 1 #Intializing i
+
+# For loop for 1000 iterations for 1000 random samples
+for(i in 1:1000){
+  sample = U[sample(nrow(U), 1000),]
+  temp$X.RVBU_count <- sum(sample$RVBU)
+  temp$X.iteration <- i      
+  Dataset = bind_rows(Dataset, temp)
+}
+
+# Adding metadata for plotting
+U_RVBU <- Dataset  
+U_RVBU$Site_Group <- "Unrestored"
+U_RVBU$Iteration <- c(1:nrow(U_RVBU))
+
+
+# Getting the number of RVBU detections in LLD sites
+LLD <- Annotated[Annotated$Site_Group == "No_Lantana", ] #Subset rows with LLD sites data
+
+# Initializing data frames 
+Dataset <- data.frame()
+temp <- data.frame('RVBU_count', 'iteration')
+
+i = 1 #Initializing i
+
+# For loop for 1000 iterations for 1000 random samples
+for(i in 1:1000){
+  sample = LLD[sample(nrow(LLD), 1000),]
+  temp$X.RVBU_count <- sum(sample$RVBU)
+  temp$X.iteration <- i      
+  Dataset = bind_rows(Dataset, temp)
+}
+
+#Adding metadata for plotting
+LLD_RVBU <- Dataset  
+LLD_RVBU$Site_Group <- "LLD"
+LLD_RVBU$Iteration <- c(1:nrow(LLD_RVBU))
+
+# Combining the computed number of detections for all three site groups into one data frame
+RVBU_Count <- rbind(R_RVBU, U_RVBU, LLD_RVBU)  
+RVBU_Count <- RVBU_Count[,-c(1,2,4)] #Removing unnecessary columns
+
+#Renaming columns for better readability and plotting
+colnames(RVBU_Count) <- c("Total_detections", "Site_Group", "Iteration")  
+
+
+### Plotting RVBU detections per random 1000 sample for all three site groups
+
+#Colour-blind friendly pallete for plotting
+cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+# Following plot represents Figure 2 in the main manuscript
+fig2 <- RVBU_Count %>%
+  ggplot( aes(x=Site_Group, y=Total_detections, group=Site_Group, fill=Site_Group)) +
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "Total number of RVBU detections",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "none")+
+  ggtitle("RVBU detections in 1000 iterations of 1000 samples")+
+  geom_signif(comparisons = list(c("LLD","Restored"),
+                                 c("Restored","Unrestored"),
+                                 c("LLD","Unrestored")),
+              map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+              na.rm = TRUE,
+              step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+
+fig2
+
+
+```
+
+## 2. Analysing the differrences in the proportions of the different types of RVBU vocalizations in the three site types. 
+The following section computes and plots the results for the differences observed in the proportion of each vocalization type (Song, Contact call and Alarm/Distress) in each site type.
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+#set working directory
+
+setwd("E:/RVBU/Code_and_data_for_Biotropica/V2")
+
+#Read data on RVBU vocalizations
+N_calls <- read.csv("RVBU_vocalizations.csv", 
+                       header = TRUE, check.names = FALSE)
+
+N_calls$N <- 1 #Add Count var 
+
+
+All_calls <- N_calls %>% group_by(Site_Group, Site_Name, Site_Code, Date) %>%
+  summarise(All_calls = sum(N)) #Computing all vocalizations in each site code per day
+
+CallsProp <- N_calls %>% group_by(Site_Group, Site_Name, Site_Code, Date, Song_Type) %>%
+  summarise(N_calls = sum(N)) #Computing number of each vocalization type in each site code per day
+
+#Merging data frames for computing the proportion of all types of vocalizations
+CallsProp <- merge.data.frame(CallsProp, All_calls, 
+                              by = c("Site_Group", "Site_Name", "Site_Code", "Date"))
+
+CallsProp$CallsProp <- CallsProp$N_calls / CallsProp$All_calls # Proportion of all types of vocalizations 
+
+## Computing the summary statistics
+summary_prop <- Rmisc::summarySE(CallsProp, measurevar = "CallsProp", groupvars = c("Site_Group","Song_Type"))
+
+
+### Wilcoxon test to look at differences within sites for the proportion of each call type within all sites at the site code level
+
+stat.test <- CallsProp %>%
+  group_by(Song_Type) %>%
+  wilcox_test(CallsProp ~ Site_Group)
+
+#Wilcoxon test results summary
+stat.test 
+
+#Add XY positions
+stat.test <- stat.test %>%
+  add_xy_position(x = "Song_Type", fun = "mean_sd", dodge = 0.8)
+
+
+## Plot data
+#Colour-blind friendly pallete for plotting
+cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+#The following plot represents Figure 3 in the main manuscript
+fig8 <- ggplot(summary_prop, aes(x=Song_Type, y=CallsProp)) + 
+  geom_col(aes(x=Song_Type, y=CallsProp, fill=Site_Group), position='dodge') +
+  geom_errorbar(aes(x=Song_Type, ymin = CallsProp-se, ymax = CallsProp+se, group = Site_Group),
+                width=.4,                    # Width of the error bars
+                position=position_dodge(.9), stat = 'identity', color = "black")+
+  theme_minimal() +
+  labs(x = "", y = "Proportion of call type",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        axis.title.y = element_text(vjust = 2),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored')) +
+  
+  stat_pvalue_manual(stat.test, label = "p.adj", tip.length = 0.01, hide.ns = TRUE)+
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))
+
+fig8
+
+```

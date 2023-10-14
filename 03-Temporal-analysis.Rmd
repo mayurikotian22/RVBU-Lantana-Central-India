@@ -1,0 +1,298 @@
+---
+title: "RVBU-1"
+author: "Mayuri Kotian"
+date: "2023-10-03"
+output: html_document
+---
+
+```Load 
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 3: Are there significant temporal differences in RVBU vocalizations across sites?
+
+This is an R Markdown document that contains 3 main sections that provide the code for computing and obtaining the plots displaying the following - 1. Proportion of all RVBU vocalizations over dawn hours for each site type. 2. Proportion of all RVBU songs over dawn hours for each site type. 3. Proportion of all RVBU contact calls over dawn hours for each site type. At the end of each section, you will find the plots displaying the results for each. 
+
+
+## Temporal analysis
+This section computes the proportion of all vocalizations, songs and contact calls over dawn hours between 0530 Hrs and 0930 Hrs. It also provides the code used for computing the Wilcoxon test of significance and plotting the results for Figures 6, 7 and 8 in the main manuscript. 
+
+```{r setup, include=FALSE, message = FALSE, warning= FALSE}
+
+#Loading required libraries 
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggpmisc)
+library(ggpubr)
+
+```
+
+Read data used for all sections in the markdown file. 
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+#set working directory
+
+setwd("E:/RVBU/Code_and_data_for_Biotropica/V2")
+
+## Reading RVBU vocalization data
+RVBU_calls <- read.csv("RVBU_vocalizations.csv", 
+                       header = TRUE, check.names = FALSE)
+
+#Ensuring correct datatypes for factor vars used in analysis
+RVBU_calls$Time_15 <- as.factor(RVBU_calls$Time_15)
+RVBU_calls$Site_Group <- as.factor(RVBU_calls$Site_Group)
+
+```
+
+# 1. Proportion of all vocalizations across time
+The following section computes the Proportion of all vocalizations for each 15-min time interval, runs the Wilcoxon test of significance and plots the results.
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+N_calls <- RVBU_calls
+
+N_calls$N_calls <- 1 ## Add count var to get the count of files per bin
+
+All_calls <- N_calls %>% group_by(Site_Group, Site_Name, Site_Code, Date, Time_15) %>%
+  summarise(N_clips = length(unique(Obs_Name))) ## Calls prop denominator
+
+CallsProp <- N_calls %>% group_by(Site_Group, Site_Name, Site_Code, Date, Time_15) %>%
+  summarise(N_calls = sum(N_calls)) ## Calls prop numerator
+
+#MErging denominator and numerator data to calculate the proportion of calls 
+CallsProp <- merge.data.frame(CallsProp, All_calls, 
+                              by = c("Site_Group", "Site_Name", "Site_Code", "Date","Time_15"))
+
+CallsProp$CallsProp <- CallsProp$N_calls / CallsProp$N_clips #Calculate proportion of calls
+
+
+### Wilcoxon test to check significace of difference
+
+#ENsuring correct datatypes for factor vars
+CallsProp$Site_Group <- as.factor(CallsProp$Site_Group)
+CallsProp$Time_15 <- as.factor(CallsProp$Time_15)
+
+#Keeping complete cases only
+CallsProp <- CallsProp[complete.cases(CallsProp), ]
+
+#Get the Wilcoxon test statistics
+stat.test <- CallsProp %>% 
+  rstatix::wilcox_test(CallsProp ~ Site_Group, detailed = TRUE, conf.level = 0.95)
+
+stat.test 
+
+#Check median proportion of calls for each site group
+CallsProp %>% group_by(Site_Group) %>%
+  summarise(median = median(CallsProp))
+
+# summarySE provides the standard deviation, standard error of the mean, and a (default 95%) confidence interval
+summary_data <- Rmisc::summarySE(CallsProp, measurevar="CallsProp", groupvars=c("Site_Group","Time_15"))
+
+#Plotting Proportion of calls over time
+
+#Colour-blind friendly pallete for plotting
+cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+#Plot
+fig6 <- summary_data %>%
+  ggplot( aes(x=Time_15, y=CallsProp, group=Site_Group, color=Site_Group)) +
+  geom_line(linewidth = 1.8) +
+  theme_minimal() +
+  labs(x = "Time", y = "Proportion of all vocalizations",
+       color = "Site type", title = "Time scale: 15-min intervals") +
+  theme(axis.text = element_text(size = 20),
+        axis.text.x = element_text(angle = 45),
+        axis.title = element_text(size = 20),
+        axis.title.y = element_text(vjust = 4),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_errorbar(aes(ymin = CallsProp-se, ymax = CallsProp+se), alpha = 0.8, width=.38) +
+  stat_peaks(colour = "#D55E00", cex = 5, pch = 16, strict = TRUE, span = NULL)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  stat_compare_means(aes(group = Site_Group), label = "p.signif", method = "wilcox.test",
+                     label.y = c(1, 1, 0.75), hide.ns = TRUE)+
+  coord_polar()
+
+
+fig6
+
+```
+
+# 2. Proportion of songs across time
+The following section computes the Proportion of songs for each 15-min time interval, runs the Wilcoxon test of significance and plots the results.
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+N_calls <- RVBU_calls
+
+N_calls$N_calls <- 1 ## Add count var to get the count of files per bin
+
+All_calls <- N_calls %>% group_by(Site_Group, Site_Name, Site_Code, Date, Time_15) %>%
+  summarise(All_calls = sum(N_calls)) #Getting the denominator for equation 2
+
+N_calls <- subset(N_calls, Song_Type == "Song") #Subsetting the data for songs only
+
+CallsProp <- N_calls %>% group_by(Site_Group, Site_Name, Site_Code, Date, Time_15) %>%
+  summarise(N_calls = sum(N_calls)) #Getting the numerator for equation 2
+
+#Mringing numerator and denominator data for calculating the proportion of songs
+CallsProp <- merge.data.frame(CallsProp, All_calls, 
+                              by = c("Site_Group", "Site_Name", "Site_Code", "Date", "Time_15"))
+
+#Calucatinmg the proportion of songs as per equation 2
+CallsProp$CallsProp <- CallsProp$N_calls / CallsProp$All_calls
+
+
+### Wilcoxon test
+
+#Ensuring correct datatypes for factor vars
+CallsProp$Site_Group <- as.factor(CallsProp$Site_Group)
+CallsProp$Time_15 <- as.factor(CallsProp$Time_15)
+
+#Keeping complete cases only
+CallsProp <- CallsProp[complete.cases(CallsProp), ]
+
+#Computing the wilcoxon test statistics
+stat.test <- CallsProp %>% 
+  rstatix::wilcox_test(CallsProp ~ Site_Group, detailed = TRUE, conf.level = 0.95)
+
+stat.test 
+
+#Checking median Proportion of songs per site group
+CallsProp %>% group_by(Site_Group) %>%
+  summarise(median = median(CallsProp))
+
+
+# summarySE provides the standard deviation, standard error of the mean, and a (default 95%) confidence interval
+
+summary_data <- Rmisc::summarySE(CallsProp, measurevar="CallsProp", groupvars=c("Site_Group","Time_15"))
+
+
+#Plotting Porportion of songs over time
+#Colour-blind friendly pallete
+cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+
+# Plot
+fig7 <- summary_data %>%
+  ggplot( aes(x=Time_15, y=CallsProp, group=Site_Group, color=Site_Group)) +
+  geom_line(linewidth = 1.8) +
+  theme_minimal() +
+  labs(x = "Time", y = "Proportion of songs",
+       color = "Site type", title = "Time scale: 15-min intervals") +
+  theme(axis.text = element_text(size = 20),
+        axis.text.x = element_text(angle = 45),
+        axis.title = element_text(size = 20),
+        axis.title.y = element_text(vjust = 4),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_errorbar(aes(ymin = CallsProp-se, ymax = CallsProp+se), alpha = 0.8, width=.38) +
+  stat_peaks(colour = "#D55E00", cex = 5, pch = 16, strict = TRUE, span = NULL)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  stat_compare_means(aes(group = Site_Group), label = "p.signif", method = "wilcox.test",
+                     label.y = c(1, 1, 0.75), hide.ns = TRUE)+
+  coord_polar()
+
+
+fig7
+
+```
+
+# 3. Proportion of contact calls across time
+The following section computes the Proportion of contact calls for each 15-min time interval, runs the Wilcoxon test of significance and plots the results.
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+N_calls <- RVBU_calls
+
+N_calls$N_calls <- 1 ## Add count var to get the count of files per bin
+
+All_calls <- N_calls %>% group_by(Site_Group, Site_Name, Site_Code, Date, Time_15) %>%
+  summarise(All_calls = sum(N_calls)) #Getting the denominator for equation 2
+
+N_calls <- subset(N_calls, Song_Type == "Contact") #Subsetting the data for songs only
+
+CallsProp <- N_calls %>% group_by(Site_Group, Site_Name, Site_Code, Date, Time_15) %>%
+  summarise(N_calls = sum(N_calls)) #Getting the numerator for equation 2
+
+#Mringing numerator and denominator data for calculating the proportion of songs
+CallsProp <- merge.data.frame(CallsProp, All_calls, 
+                              by = c("Site_Group", "Site_Name", "Site_Code", "Date", "Time_15"))
+
+#Calucatinmg the proportion of songs as per equation 2
+CallsProp$CallsProp <- CallsProp$N_calls / CallsProp$All_calls
+
+
+### Wilcoxon test
+
+#Ensuring correct datatypes for factor vars
+CallsProp$Site_Group <- as.factor(CallsProp$Site_Group)
+CallsProp$Time_15 <- as.factor(CallsProp$Time_15)
+
+#Keeping complete cases only
+CallsProp <- CallsProp[complete.cases(CallsProp), ]
+
+#Computing the wilcoxon test statistics
+stat.test <- CallsProp %>% 
+  rstatix::wilcox_test(CallsProp ~ Site_Group, detailed = TRUE, conf.level = 0.95)
+
+stat.test 
+
+#Checking median Proportion of songs per site group
+CallsProp %>% group_by(Site_Group) %>%
+  summarise(median = median(CallsProp))
+
+
+# summarySE provides the standard deviation, standard error of the mean, and a (default 95%) confidence interval
+
+summary_data <- Rmisc::summarySE(CallsProp, measurevar="CallsProp", groupvars=c("Site_Group","Time_15"))
+
+
+#Plotting Porportion of songs over time
+#Colour-blind friendly pallete
+cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+
+# Plot
+fig8 <- summary_data %>%
+  ggplot( aes(x=Time_15, y=CallsProp, group=Site_Group, color=Site_Group)) +
+  geom_line(linewidth = 1.8) +
+  theme_minimal() +
+  labs(x = "Time", y = "Proportion of contact calls",
+       color = "Site type", title = "Time scale: 15-min intervals") +
+  theme(axis.text = element_text(size = 20),
+        axis.text.x = element_text(angle = 45),
+        axis.title = element_text(size = 20),
+        axis.title.y = element_text(vjust = 4),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_errorbar(aes(ymin = CallsProp-se, ymax = CallsProp+se), alpha = 0.8, width=.38) +
+  stat_peaks(colour = "#D55E00", cex = 5, pch = 16, strict = TRUE, span = NULL)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  stat_compare_means(aes(group = Site_Group), label = "p.signif", method = "wilcox.test",
+                     label.y = c(1, 1, 0.75), hide.ns = TRUE)+
+    coord_polar()
+
+fig8
+
+```

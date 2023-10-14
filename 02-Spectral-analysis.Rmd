@@ -1,0 +1,549 @@
+---
+title: "Spectral-analysis-02"
+author: "Mayuri Kotian"
+date: "2023-10-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 2: Are there significant specytral differences in RVBU vocalizations across sites?
+
+This is an R Markdown document contains 2 sections that provide the code for obtaining the differences in the spectral parameters of 1. RVBU songs and 2. RVBU Contact calls. At the end of each section you will find the output for all spectral features combined in a single figure. 
+
+
+# Loading libraries and data containg the spectral information for each note of RVBU songs and contact calls
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+# Loaidng required libraries
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggpmisc)
+library(ggsignif)
+library(ggpubr)
+library(rstatix)
+
+#set working directory
+
+setwd("E:/RVBU/Code_and_data_for_Biotropica/V2")
+
+## Read RVBU vocalization notes data
+RVBU_notes <- read.csv("RVBU_notes.csv", header = TRUE, check.names = FALSE)
+
+
+```
+
+### 1. Spectral analysis of RVBU songs
+This section provides the code for computing the Wilcoxon test statistics and plotting the results for 5 spectral parameters as shown in Figures 4 and 5 in the main manuscript, and Figure S4 in the supplementary information document.
+
+```{r message=FALSE, warning=FALSE, include=TRUE}
+
+
+# Subsetting data for RVBU songs
+songs <- subset(RVBU_notes, RVBU_notes$Song_Type == 'Song')
+
+# Removing NA values
+songs <- na.omit(songs)
+
+
+## PFC Max Frequency of RVBU songs
+
+# Running Wilcoxon test of significance for PFC Max Freq of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <- subset(songs, 
+                    songs$`PFC Max Freq (Hz)`< quantile(songs$`PFC Max Freq (Hz)`, 0.975))  %>%
+  wilcox_test(`PFC Max Freq (Hz)` ~ Site_Group)
+
+#Wilcoxon test results
+stat.test 
+
+#Checking median PFC Max Freq values
+subset(songs, 
+       songs$`PFC Max Freq (Hz)`< quantile(songs$`PFC Max Freq (Hz)`, 0.975))  %>% group_by(Site_Group) %>%
+  summarise(median = median(`PFC Max Freq (Hz)`))
+
+#Plotting results
+#Colour-blind friendly pallete for plotting
+cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+fig1 <- ggplot(subset(songs, 
+                      songs$`PFC Max Freq (Hz)`< quantile(songs$`PFC Max Freq (Hz)`, 0.975)), 
+               aes(x = Site_Group, y = `PFC Max Freq (Hz)` , 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "PFC Max Frequency (Hz)",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_signif(comparisons = list(c("LLD","Restored"),
+                                 c("Restored","Unrestored")),
+              #c("LLD","Unrestored")), #Comparison removed based on Wilcoxon test results
+              map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+              na.rm = TRUE,
+              step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+fig1
+
+## PFC Min Frequency of RVBU songs
+
+# Running Wilcoxon test of significance for PFC Min Freq of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <- subset(songs, 
+                    songs$`PFC Min Freq (Hz)`< quantile(songs$`PFC Min Freq (Hz)`, 0.975))  %>%
+  wilcox_test(`PFC Min Freq (Hz)` ~ Site_Group)
+
+#Wilcoxon test results
+stat.test 
+
+#Checking median PFC Max Freq values
+subset(songs, 
+       songs$`PFC Min Freq (Hz)`< quantile(songs$`PFC Min Freq (Hz)`, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(`PFC Min Freq (Hz)`))
+
+#Plotting results
+fig2 <- ggplot(subset(songs, 
+                      songs$`PFC Min Freq (Hz)`< quantile(songs$`PFC Min Freq (Hz)`, 0.975)), 
+               aes(x = Site_Group, y = `PFC Min Freq (Hz)`, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "PFC Min Frequency (Hz)",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_signif(comparisons = list(c("LLD","Restored"),
+                                 c("Restored","Unrestored")),
+              #c("LLD","Unrestored")), #Comparison removed based on Wilcoxon test results
+              map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+              na.rm = TRUE,
+              step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+fig2
+
+
+## Bandwidth 90 of RVBU songs
+# Running Wilcoxon test of significance for PFC Min Freq of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <-  subset(songs, 
+                     songs$`BW 90  (Hz)`< quantile(songs$`BW 90  (Hz)`, 0.975))  %>%
+  wilcox_test(`BW 90  (Hz)` ~ Site_Group)
+
+#Wilcoxon test results
+stat.test 
+
+#Checking median BW 90 values
+subset(songs, 
+       songs$`BW 90  (Hz)`< quantile(songs$`BW 90  (Hz)`, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(`BW 90  (Hz)`))
+
+#Plotting results
+fig3 <- ggplot(subset(songs, 
+                      songs$`BW 90  (Hz)`< quantile(songs$`BW 90  (Hz)`, 0.975)),
+               aes(x = Site_Group, y = `BW 90  (Hz)`, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "Bandwidth 90% (Hz)",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_signif(comparisons = list(c("LLD","Restored"),
+                                 #c("Restored","Unrestored"), #Comparison removed based on Wilcoxon test results
+                                 c("LLD","Unrestored")),
+              map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+              na.rm = TRUE,
+              step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+fig3
+
+
+## Note length
+
+# Running Wilcoxon test of significance for PFC Min Freq of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <- subset(songs, 
+                    songs$`Note length (s)`< quantile(songs$`Note length (s)`, 0.975))  %>%
+  wilcox_test(`Note length (s)` ~ Site_Group)
+
+#Wilcoxon test results
+stat.test 
+
+# Checking median note length values
+subset(songs, 
+       songs$`Note length (s)`< quantile(songs$`Note length (s)`, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(`Note length (s)`))
+
+#Plotting results
+fig4 <- ggplot(subset(songs, songs$`Note length (s)`< quantile(songs$`Note length (s)`, 0.975)), 
+               aes(x = Site_Group, y = `Note length (s)`, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "Note length (s)",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_signif(comparisons = list(c("LLD","Restored"),
+                                 c("Restored","Unrestored"),
+                                 c("LLD","Unrestored")),
+              map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+              na.rm = TRUE,
+              step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+fig4
+
+
+##Number of notes of RVBU songs
+#This was based on the data with the unit of analysis as whole songs
+
+RVBU_calls <- read.csv("RVBU_vocalizations.csv", 
+                       header = TRUE, check.names = FALSE)
+
+## Filtering songs from all vocalizations
+N_calls <- subset(RVBU_calls, RVBU_calls$Song_Type == "Song")
+
+# # Running Wilcoxon test of significance for PFC Min Freq of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <- subset(N_calls, 
+                    N_calls$No_of_Notes < quantile(N_calls$No_of_Notes, 0.975))  %>%
+  rstatix::wilcox_test(No_of_Notes ~ Site_Group)
+
+#Wilcoxon Test results
+stat.test 
+
+#Checking median values for number of notes
+subset(N_calls, 
+       N_calls$No_of_Notes < quantile(N_calls$No_of_Notes, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(No_of_Notes))
+
+## Plotting results
+fig5 <- ggplot(subset(N_calls, N_calls$No_of_Notes < quantile(N_calls$No_of_Notes, 0.975)), 
+               aes(x = Site_Group, y = No_of_Notes, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "Number of notes",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_signif(comparisons = list(#c("LLD","Restored"), #Comparisons removed based on Wilcoxon test results
+    # c("Restored","Unrestored"),
+    c("LLD","Unrestored")),
+    map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+    na.rm = TRUE,
+    step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+
+fig5
+
+## Combining all plots for songs in one figure
+RVBU_song_params <- ggarrange(fig1, fig2, fig3, fig4, fig5, common.legend = TRUE, legend = "bottom") +
+  ggtitle('RVBU song parameters')
+
+RVBU_song_params
+
+```
+
+
+
+### 2. Spectral analysis of RVBU contact calls
+This section provides the code for computing the Wilcoxon test statistics and plotting the results for 5 spectral parameters as shown in Figures 4 and 5 in the main manuscript, and Figure S4 in the supplementary information document.
+
+```{r, message=FALSE, warning=FALSE, include=TRUE}
+
+
+#Reloading Main dataset
+RVBU_notes <- read.csv("RVBU_notes.csv", header = TRUE,
+                       check.names = FALSE)
+
+
+#Subsetting contact calls from all vocalizations
+calls <- subset(RVBU_notes, RVBU_notes$Song_Type == 'Contact')
+
+# Removing NA values
+calls <- na.omit(calls)
+
+
+# PFC Max Freq of RVBU contact calls
+
+## Running Wilcoxon test of significance for PFC Max Freq of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <- subset(calls, 
+                    calls$`PFC Max Freq (Hz)` < quantile(calls$`PFC Max Freq (Hz)`, 0.975))  %>%
+  wilcox_test(`PFC Max Freq (Hz)` ~ Site_Group)
+
+#Wilcxon test results
+stat.test 
+
+#Checking median PFC Max freq values 
+subset(calls, 
+       calls$`PFC Max Freq (Hz)` < quantile(calls$`PFC Max Freq (Hz)`, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(`PFC Max Freq (Hz)`))
+
+library(ggplot2)
+library(ggsignif)
+
+#Plotting results
+#Colour-blind friendly pallete for plotting
+cbp1 <- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+fig6<- ggplot(subset(calls, calls$`PFC Max Freq (Hz)`< quantile(calls$`PFC Max Freq (Hz)`, 0.975)),
+               aes(x = Site_Group, y = `PFC Max Freq (Hz)`, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "PFC Max Frequency (Hz)",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  #geom_signif(comparisons = list(c("LLD","Restored"), ##Comparisons removed based on Wilcoxon test results
+  #                              c("Restored","Unrestored"),
+  #          c("LLD","Unrestored")),
+  #         map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+  #        na.rm = TRUE,
+  #       step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+fig6
+
+
+## PFC Min Frequency
+## Running Wilcoxon test of significance for PFC Min Freq of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <- subset(calls, 
+                    calls$`PFC Min Freq (Hz)` < quantile(calls$`PFC Min Freq (Hz)`, 0.975))  %>%
+  wilcox_test(`PFC Min Freq (Hz)` ~ Site_Group)
+
+#Wilcoxon test results
+stat.test 
+
+#Checking median PFC Min Freq values
+subset(calls, 
+       calls$`PFC Min Freq (Hz)` < quantile(calls$`PFC Min Freq (Hz)`, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(`PFC Min Freq (Hz)`))
+
+#Plotting results
+fig7 <- ggplot(subset(calls, calls$`PFC Min Freq (Hz)`< quantile(calls$`PFC Min Freq (Hz)`, 0.975)),
+               aes(x = Site_Group, y = `PFC Min Freq (Hz)`, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "PFC Min Frequency (Hz)",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  #geom_signif(comparisons = list(#c("LLD","Restored"), #Comparisons removed based on Wilcoxon test results
+  #                        c("Restored","Unrestored")),
+  #c("LLD","Unrestored")),
+  # map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+  # na.rm = TRUE,
+  # step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+fig7
+
+
+## Bandwidth 90
+## Running Wilcoxon test of significance for PFC Min Freq of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <- subset(calls, 
+                    calls$`BW 90  (Hz)` < quantile(calls$`BW 90  (Hz)`, 0.975)) %>%
+  wilcox_test(`BW 90  (Hz)` ~ Site_Group)
+
+#Wilcoxon test results
+stat.test 
+
+#Checking median Bandwidth values 
+subset(calls, 
+       calls$`BW 90  (Hz)` < quantile(calls$`BW 90  (Hz)`, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(`BW 90  (Hz)`))
+
+#Plotting results
+fig8 <- ggplot(subset(calls, calls$`BW 90  (Hz)`< quantile(calls$`BW 90  (Hz)`, 0.975)), 
+               aes(x = Site_Group, y = `BW 90  (Hz)`, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "Bandwidth 90% (Hz)",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_signif(comparisons = list(c("LLD","Restored"),
+                                 #c("Restored","Unrestored"), #Comparison removed based on Wilcoxon test results
+                                 c("LLD","Unrestored")),
+              map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+              na.rm = TRUE,
+              step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+fig8
+
+
+## Note length
+## Running Wilcoxon test of significance for Note length of RVBU songs with outliers outside 97.5 percentile removed
+stat.test <-  subset(calls, 
+                     calls$`Note length (s)` < quantile(calls$`Note length (s)`, 0.975))  %>%
+  wilcox_test(`Note length (s)` ~ Site_Group)
+
+#WIlcoxon test results
+stat.test 
+
+#Checking median note length values
+subset(calls, 
+       calls$`Note length (s)` < quantile(calls$`Note length (s)`, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(`Note length (s)`))
+
+
+fig9 <- ggplot(subset(calls, calls$`Note length (s)`< quantile(calls$`Note length (s)`, 0.975)), 
+               aes(x = Site_Group, y = `Note length (s)`, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "Note length (s)",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  geom_signif(comparisons = list(c("LLD","Restored"),
+                                 c("Restored","Unrestored"),
+                                 c("LLD","Unrestored")),
+              map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+              na.rm = TRUE,
+              step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+fig9
+
+# Number of notes of RVBU contact calls
+#This was based on the data with the unit of analysis as whole songs
+
+RVBU_calls <- read.csv("RVBU_vocalizations.csv", 
+                       header = TRUE, check.names = FALSE)
+
+## Filtering contact calls from all vocalizations
+N_calls <- subset(RVBU_calls, RVBU_calls$Song_Type == "Contact")
+
+## Running Wilcoxon test of significance for Number of notes of RVBU contact calls with outliers outside 97.5 percentile removed
+stat.test <- subset(N_calls, 
+                    N_calls$No_of_Notes < quantile(N_calls$No_of_Notes, 0.975))  %>%
+  rstatix::wilcox_test(No_of_Notes ~ Site_Group)
+
+#Wilcoxon Test results
+stat.test 
+
+#Checking median values for number of notes
+subset(N_calls, 
+       N_calls$No_of_Notes < quantile(N_calls$No_of_Notes, 0.975)) %>% group_by(Site_Group) %>%
+  summarise(median = median(No_of_Notes))
+
+## Plotting results
+fig10 <- ggplot(subset(N_calls, N_calls$No_of_Notes < quantile(N_calls$No_of_Notes, 0.975)), 
+               aes(x = Site_Group, y = No_of_Notes, 
+                   fill = Site_Group)) + 
+  geom_violin() +
+  geom_boxplot(width = 0.2) +
+  theme_minimal() +
+  labs(x = "", y = "Number of notes",
+       fill = "Site type") +
+  theme(axis.text = element_text(size = 20),
+        axis.title = element_text(size = 20),
+        title = element_text(size = 20),
+        legend.text = element_text(size = 20),
+        legend.title = element_text(size = 20),
+        legend.position = "bottom")+
+  #geom_signif(comparisons = list(#c("LLD","Restored"), #Comparisons removed based on Wilcoxon test results
+    # c("Restored","Unrestored"),
+    #c("LLD","Unrestored")),
+    #map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
+   # na.rm = TRUE,
+    #step_increase = 0.1)+
+  scale_color_manual(name = "Site Type", values = cbp1,
+                     labels=c('Low Lantana density', 'Restored', 'Unrestored'))+
+  scale_fill_manual(name = "Site Type", values = cbp1, 
+                    labels=c('Low Lantana density', 'Restored', 'Unrestored'))
+
+
+fig10
+
+## Combining all plots for contact calls in one figure
+RVBU_contact_params <- ggarrange(fig6, fig7, fig8, fig9, fig10, common.legend = TRUE, legend = "bottom") +
+  ggtitle('RVBU contact call parameters')
+
+RVBU_contact_params
+
+```
