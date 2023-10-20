@@ -268,7 +268,7 @@ fig5 <- ggplot(subset(N_calls, N_calls$No_of_Notes < quantile(N_calls$No_of_Note
         legend.text = element_text(size = 20),
         legend.title = element_text(size = 20),
         legend.position = "bottom")+
-  geom_signif(comparisons = list(#c("LLD","Restored"), #Comparisons removed based on Wilcoxon test results
+  geom_signif(comparisons = list(c("LLD","Restored"), #Comparisons removed based on Wilcoxon test results
     # c("Restored","Unrestored"),
     c("LLD","Unrestored")),
     map_signif_level = c("***"=0.001,"**"=0.01, "*"=0.05, " "=2),
